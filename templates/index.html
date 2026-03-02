@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="EduRAG — Context-Aware Academic RAG Assistant powered by AI">
+    <title>EduRAG — Academic Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ── reset & base ──────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 40%, #24243e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ── sidebar ───────────────────────────────────────── */
+        .sidebar {
+            width: 280px;
+            min-height: 100vh;
+            background: rgba(15, 12, 41, 0.95);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            padding: 32px 20px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 10;
+        }
+        .sidebar h2 {
+            font-size: 1.05rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+        .status-ready {
+            background: rgba(78,205,196,0.12);
+            color: #4ECDC4;
+            border: 1px solid rgba(78,205,196,0.25);
+        }
+        .status-empty {
+            background: rgba(255,209,102,0.12);
+            color: #FFD166;
+            border: 1px solid rgba(255,209,102,0.25);
+        }
+        .sidebar-text {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.82rem;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+        .btn-ingest {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.05);
+            color: #e0e0e0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        .btn-ingest:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+        .btn-ingest:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .sidebar-footer {
+            margin-top: auto;
+            text-align: center;
+            color: rgba(255,255,255,0.25);
+            font-size: 0.75rem;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* ── main ──────────────────────────────────────────── */
+        .main {
+            margin-left: 280px;
+            flex: 1;
+            padding: 48px 60px;
+            max-width: 960px;
+        }
+        .hero-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 6px;
+            letter-spacing: -1px;
+        }
+        .hero-sub {
+            color: rgba(255,255,255,0.45);
+            font-size: 1.05rem;
+            margin-bottom: 36px;
+            font-weight: 300;
+        }
+
+        /* ── input row ─────────────────────────────────────── */
+        .input-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .question-input {
+            flex: 1;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .question-input::placeholder { color: rgba(255,255,255,0.3); }
+        .question-input:focus { border-color: rgba(102,126,234,0.5); }
+
+        .mode-select {
+            padding: 14px 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+            min-width: 180px;
+        }
+        .mode-select option { background: #1a1a3e; color: #fff; }
+
+        .mode-hint {
+            color: rgba(255,255,255,0.35);
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .btn-ask {
+            padding: 14px 40px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        .btn-ask:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-ask:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            margin: 28px 0;
+        }
+
+        /* ── answer section ────────────────────────────────── */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: rgba(255,255,255,0.85);
+        }
+        .answer-box {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            line-height: 1.8;
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+        }
+
+        /* ── source + exam row ─────────────────────────────── */
+        .meta-row {
+            display: flex;
+            gap: 28px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .meta-col { flex: 1; min-width: 250px; }
+
+        .source-chip {
+            display: inline-block;
+            background: rgba(102,126,234,0.12);
+            color: #a5b4fc;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 3px 4px;
+            border: 1px solid rgba(102,126,234,0.25);
+        }
+
+        .exam-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .exam-high   { background: rgba(255,107,107,0.15); color: #FF6B6B; border: 1px solid rgba(255,107,107,0.3); }
+        .exam-medium { background: rgba(255,209,102,0.15); color: #FFD166; border: 1px solid rgba(255,209,102,0.3); }
+        .exam-low    { background: rgba(78,205,196,0.15);  color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3);  }
+        .exam-reason {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.78rem;
+            margin-top: 8px;
+        }
+
+        /* ── mind map / concepts ───────────────────────────── */
+        .concept-pill {
+            display: inline-block;
+            background: rgba(78,205,196,0.10);
+            color: #4ECDC4;
+            padding: 7px 18px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 5px 4px;
+            border: 1px solid rgba(78,205,196,0.25);
+            transition: transform 0.15s ease, background 0.15s ease;
+            cursor: default;
+        }
+        .concept-pill:hover { transform: scale(1.06); background: rgba(78,205,196,0.18); }
+
+        /* ── loading spinner ───────────────────────────────── */
+        .spinner-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15,12,41,0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .spinner-overlay.active { display: flex; }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .spinner-text {
+            color: rgba(255,255,255,0.6);
+            margin-top: 16px;
+            font-size: 0.95rem;
+        }
+        .spinner-wrap { text-align: center; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── toast ─────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            top: 24px; right: 24px;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            z-index: 200;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .toast-success { background: rgba(78,205,196,0.18); color: #4ECDC4; border: 1px solid rgba(78,205,196,0.3); }
+        .toast-error   { background: rgba(255,107,107,0.18); color: #FF6B6B; border: 1px solid rgba(255,107,107,0.3); }
+        .toast-warning { background: rgba(255,209,102,0.18); color: #FFD166; border: 1px solid rgba(255,209,102,0.3); }
+
+        /* ── hidden ────────────────────────────────────────── */
+        .hidden { display: none; }
+
+        /* ── responsive ────────────────────────────────────── */
+        @media (max-width: 800px) {
+            .sidebar { width: 100%; position: relative; min-height: auto; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+            .main { margin-left: 0; padding: 28px 20px; }
+            body { flex-direction: column; }
+            .input-row { flex-direction: column; }
+            .mode-select { min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── sidebar ────────────────────────────────────────────── -->
+<aside class="sidebar">
+    <h2>📚 Document Manager</h2>
+    <div id="statusBadge" class="status-badge status-empty">⚠️ No documents ingested yet</div>
+    <p class="sidebar-text">Place your academic PDFs in the <code>data/</code> folder, then click below.</p>
+    <button id="btnIngest" class="btn-ingest" onclick="ingestDocuments()">🔄 Ingest Documents</button>
+    <div class="sidebar-footer">EduRAG v1.0 · Built with ❤️</div>
+</aside>
+
+<!-- ── main ───────────────────────────────────────────────── -->
+<main class="main">
+    <h1 class="hero-title">🎓 EduRAG</h1>
+    <p class="hero-sub">Context-Aware Academic RAG Assistant — ask anything from your course materials</p>
+
+    <div class="input-row">
+        <input type="text" id="questionInput" class="question-input"
+               placeholder="e.g. Explain SQL joins with examples…"
+               onkeydown="if(event.key==='Enter') askQuestion()">
+        <select id="modeSelect" class="mode-select" onchange="updateModeHint()">
+            <option value="Exam">📝 Exam Mode</option>
+            <option value="Beginner">🌱 Beginner Mode</option>
+            <option value="Detailed" selected>🔬 Detailed Mode</option>
+            <option value="Analogy">💡 Analogy Mode</option>
+            <option value="Step-by-Step">👣 Step-by-Step Mode</option>
+        </select>
+    </div>
+    <p id="modeHint" class="mode-hint">🔬 Detailed Mode — Deep conceptual explanation with examples.</p>
+    <button id="btnAsk" class="btn-ask" onclick="askQuestion()">🚀 Ask</button>
+
+    <hr class="divider">
+
+    <!-- answer section (hidden until we have results) -->
+    <section id="resultSection" class="hidden">
+        <h3 class="section-title">💬 Answer</h3>
+        <div id="answerBox" class="answer-box"></div>
+
+        <div class="meta-row">
+            <div class="meta-col">
+                <h3 class="section-title">📖 Sources</h3>
+                <div id="sourcesContainer"></div>
+            </div>
+            <div class="meta-col">
+                <h3 class="section-title">🎯 Exam Probability</h3>
+                <div id="examBadge"></div>
+                <p id="examReason" class="exam-reason"></p>
+            </div>
+        </div>
+
+        <hr class="divider">
+        <h3 class="section-title">🧠 Related Concepts</h3>
+        <div id="conceptsContainer"></div>
+    </section>
+</main>
+
+<!-- ── spinner overlay ────────────────────────────────────── -->
+<div id="spinnerOverlay" class="spinner-overlay">
+    <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <p class="spinner-text" id="spinnerText">Thinking…</p>
+    </div>
+</div>
+
+<!-- ── toast ──────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
+
+<script>
+    /* ── mode descriptions ─────────────────────────────── */
+    const modeDescriptions = {
+        "Exam":        "📝 Exam Mode — Structured, bullet-point answer suitable for writing in exams.",
+        "Beginner":    "🌱 Beginner Mode — Simple explanation assuming no prior knowledge.",
+        "Detailed":    "🔬 Detailed Mode — Deep conceptual explanation with examples.",
+        "Analogy":     "💡 Analogy Mode — Explain using real-world analogies.",
+        "Step-by-Step":"👣 Step-by-Step Mode — Break the concept into sequential steps."
+    };
+
+    function updateModeHint() {
+        const mode = document.getElementById("modeSelect").value;
+        document.getElementById("modeHint").textContent = modeDescriptions[mode] || "";
+    }
+
+    /* ── toast helper ──────────────────────────────────── */
+    function showToast(message, type = "success") {
+        const el = document.getElementById("toast");
+        el.textContent = message;
+        el.className = `toast toast-${type} show`;
+        setTimeout(() => el.classList.remove("show"), 3500);
+    }
+
+    /* ── spinner helpers ───────────────────────────────── */
+    function showSpinner(text) {
+        document.getElementById("spinnerText").textContent = text || "Thinking…";
+        document.getElementById("spinnerOverlay").classList.add("active");
+    }
+    function hideSpinner() {
+        document.getElementById("spinnerOverlay").classList.remove("active");
+    }
+
+    /* ── check status on load ──────────────────────────── */
+    async function checkStatus() {
+        try {
+            const res = await fetch("/api/status");
+            const data = await res.json();
+            const badge = document.getElementById("statusBadge");
+            if (data.ready) {
+                badge.className = "status-badge status-ready";
+                badge.textContent = `✅ ${data.count} chunks loaded`;
+            } else {
+                badge.className = "status-badge status-empty";
+                badge.textContent = "⚠️ No documents ingested yet";
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    /* ── ingest ────────────────────────────────────────── */
+    async function ingestDocuments() {
+        const btn = document.getElementById("btnIngest");
+        btn.disabled = true;
+        btn.textContent = "⏳ Processing…";
+        showSpinner("Ingesting documents…");
+
+        try {
+            const res = await fetch("/api/ingest", { method: "POST" });
+            const data = await res.json();
+            if (data.files_processed > 0) {
+                showToast(data.message, "success");
+            } else {
+                showToast(data.message, "warning");
+            }
+            checkStatus();
+        } catch (e) {
+            showToast("Ingestion failed: " + e.message, "error");
+        } finally {
+            hideSpinner();
+            btn.disabled = false;
+            btn.textContent = "🔄 Ingest Documents";
+        }
+    }
+
+    /* ── ask ───────────────────────────────────────────── */
+    async function askQuestion() {
+        const question = document.getElementById("questionInput").value.trim();
+        if (!question) { showToast("Please enter a question first.", "warning"); return; }
+
+        const mode = document.getElementById("modeSelect").value;
+        const btn = document.getElementById("btnAsk");
+        btn.disabled = true;
+        showSpinner("Thinking…");
+
+        try {
+            const res = await fetch("/api/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question, mode })
+            });
+            const data = await res.json();
+
+            if (data.error) {
+                showToast(data.error, "error");
+                return;
+            }
+
+            // Show answer
+            document.getElementById("answerBox").textContent = data.answer;
+
+            // Sources
+            const srcEl = document.getElementById("sourcesContainer");
+            srcEl.innerHTML = data.sources.map(s =>
+                `<span class="source-chip">${s.filename} · p.${s.page} · ${s.doc_type}</span>`
+            ).join("");
+
+            // Exam probability
+            const ep = data.exam_probability;
+            const levelClass = { High: "exam-high", Medium: "exam-medium", Low: "exam-low" }[ep.level] || "exam-low";
+            document.getElementById("examBadge").innerHTML =
+                `<span class="exam-badge ${levelClass}">${ep.emoji} ${ep.level}</span>`;
+            document.getElementById("examReason").textContent = ep.reason;
+
+            // Related concepts
+            const conEl = document.getElementById("conceptsContainer");
+            if (data.concepts && data.concepts.length > 0) {
+                conEl.innerHTML = data.concepts.map(c =>
+                    `<span class="concept-pill">${c}</span>`
+                ).join("");
+            } else {
+                conEl.innerHTML = '<span style="color:rgba(255,255,255,0.3)">No related concepts found.</span>';
+            }
+
+            document.getElementById("resultSection").classList.remove("hidden");
+
+        } catch (e) {
+            showToast("Error: " + e.message, "error");
+        } finally {
+            hideSpinner();
+            btn.disabled = false;
+        }
+    }
+
+    // Initial status check
+    checkStatus();
+</script>
+</body>
+</html>
