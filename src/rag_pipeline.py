@@ -88,11 +88,22 @@ def query(question: str, mode: str = "Detailed") -> dict:
     prompt = get_prompt(mode, context, question)
 
     # Call LLM
-    response = ollama.chat(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    answer = response["message"]["content"]
+    try:
+        response = ollama.chat(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response["message"]["content"]
+    except Exception as e:
+        # Fallback if Ollama is not running
+        answer = (
+            "⚠️ **Ollama Connection Error**\n\n"
+            "The system was unable to connect to the Ollama service to generate a summary. "
+            "However, I have successfully retrieved the following relevant information from your documents:\n\n"
+            + context + 
+            "\n\n---\n\n"
+            "**Action Required**: Please ensure Ollama is installed and running on your system with the `llama3` model."
+        )
 
     return {
         "answer": answer,
